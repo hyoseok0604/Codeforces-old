@@ -15,9 +15,22 @@ class Contest:
         self.new_rating = new_rating
 
 
+class Submission:
+    def __init__(self, id, url, submit_time, problem_title, problem_url, language, verdict, time, memory) -> None:
+        self.id = id
+        self.url = url
+        self.submit_time = submit_time
+        self.problem_title = problem_title
+        self.problem_url = problem_url
+        self.language = language
+        self.verdict = verdict
+        self.time = time
+        self.memory = memory
+
+
 show_unofficial_submissions = True
 
-def disable_show_unofficial_submissions(session: Session, url):
+def disable_show_unofficial_submissions(session: Session, url: str):
     response = session.get(url)
 
     html = response.text
@@ -27,15 +40,13 @@ def disable_show_unofficial_submissions(session: Session, url):
         "name": "X-Csrf-Token"
     }).get_attribute_list("content")[0]
 
-    print(csrf_token)
-
     response = session.post(url, data={
         "action": "toggleShowUnofficial",
         "csrf_token": csrf_token
     })
     
 
-def parse_contests(session, handle: str):
+def parse_contests(session: Session, handle: str):
     url = "https://codeforces.com/contests/with/" + handle
     response = session.get(url)
 
@@ -58,11 +69,10 @@ def parse_contests(session, handle: str):
         new_rating = contest.select_one("td:nth-child(7)").get_text().strip()
 
         _contest = Contest(title, id, start_time, rank, solved, submissions_url, rating_change, new_rating)
-        print(submissions_url)
         parse_submissions(session, _contest)
 
 
-def parse_submissions(session, contest: Contest):
+def parse_submissions(session: Session, contest: Contest):
     url = contest.submissions_url
 
     if show_unofficial_submissions:
@@ -92,8 +102,12 @@ def parse_submissions(session, contest: Contest):
         time = submission.select_one("td:nth-child(7)").get_text().strip()
         memory = submission.select_one("td:nth-child(8)").get_text().strip()
 
-        print(problem_title)
+        _submission = Submission(id, url, submit_time, problem_title, problem_url, language, verdict, time, memory)
+        parse_submission(session, contest, _submission)
 
+
+def parse_submission(session: Session, contest: Contest, submission: Submission):
+    pass
 
 session = requests.Session()
 parse_contests(session, "hyoseok")
