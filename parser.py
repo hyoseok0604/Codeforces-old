@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import dateparser
+from requests.sessions import Session
 
 class Contest:
     def __init__(self, title, id, start_time, rank, solved, submissions_url, rating_change, new_rating) -> None:
@@ -14,9 +15,29 @@ class Contest:
         self.new_rating = new_rating
 
 
-def parse_contests(handle: str):
+show_unofficial_submissions = True
+
+def disable_show_unofficial_submissions(session: Session, url):
+    response = session.get(url)
+
+    html = response.text
+    soup = BeautifulSoup(html, 'html.parser')
+
+    csrf_token = soup.find("meta", attrs={
+        "name": "X-Csrf-Token"
+    }).get_attribute_list("content")[0]
+
+    print(csrf_token)
+
+    response = session.post(url, data={
+        "action": "toggleShowUnofficial",
+        "csrf_token": csrf_token
+    })
+    
+
+def parse_contests(session, handle: str):
     url = "https://codeforces.com/contests/with/" + handle
-    response = requests.get(url)
+    response = session.get(url)
 
     if response.status_code != 200:
         return None
@@ -37,11 +58,17 @@ def parse_contests(handle: str):
         new_rating = contest.select_one("td:nth-child(7)").get_text().strip()
 
         _contest = Contest(title, id, start_time, rank, solved, submissions_url, rating_change, new_rating)
-        parse_submissions(_contest)
+        print(submissions_url)
+        parse_submissions(session, _contest)
 
-def parse_submissions(contest: Contest):
+
+def parse_submissions(session, contest: Contest):
     url = contest.submissions_url
-    response = requests.get(url)
+
+    if show_unofficial_submissions:
+            disable_show_unofficial_submissions(session, url)
+    
+    response = session.get(url)
 
     if response.status_code != 200:
         return None
@@ -65,4 +92,8 @@ def parse_submissions(contest: Contest):
         time = submission.select_one("td:nth-child(7)").get_text().strip()
         memory = submission.select_one("td:nth-child(8)").get_text().strip()
 
-parse_contests("hyoseok")
+        print(problem_title)
+
+
+session = requests.Session()
+parse_contests(session, "hyoseok")
