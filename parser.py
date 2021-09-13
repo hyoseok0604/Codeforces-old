@@ -28,7 +28,8 @@ def parse_contests(handle: str):
     for contest in contests:
         title = contest.select_one("td:nth-child(2) > a").get_text().strip()
         id = contest.select_one("td:nth-child(2) > a").get_attribute_list("href")[0].split("/")[2]
-        start_time = dateparser.parse(contest.select_one("td:nth-child(3) > a > span").get_text(), settings={"TIMEZONE": "MSK", "TO_TIMEZONE": "KST"})
+        start_time = dateparser.parse(contest.select_one("td:nth-child(3) > a > span").get_text(),
+                                      settings={"TIMEZONE": "MSK", "TO_TIMEZONE": "KST"})
         rank = contest.select_one("td:nth-child(4)").get_text().strip()
         solved = contest.select_one("td:nth-child(5) > a").get_text().strip()
         submissions_url = "https://codeforces.com" + contest.select_one("td:nth-child(5) > a").get_attribute_list("href")[0]
@@ -39,6 +40,29 @@ def parse_contests(handle: str):
         parse_submissions(_contest)
 
 def parse_submissions(contest: Contest):
-    pass
+    url = contest.submissions_url
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        return None
+    
+    html = response.text
+    soup = BeautifulSoup(html, 'html.parser')
+    submissions = soup.select("table.status-frame-datatable > tr:not(.first-row)")
+
+    for submission in submissions:
+        id = submission.select_one("td:nth-child(1) > a").get_text().strip()
+        url = "https://codeforces.com" + submission.select_one("td:nth-child(1) > a").get_attribute_list("href")[0].strip()
+        submit_time = dateparser.parse(submission.select_one("td:nth-child(2) > span").get_text(),
+                                       settings={"TIMEZONE": "MSK", "TO_TIMEZONE": "KST"})
+        problem_title = submission.select_one("td:nth-child(4) > a").get_text().strip()
+        problem_url = "https://codeforces.com" + submission.select_one("td:nth-child(4) > a").get_attribute_list("href")[0].strip()
+        language = submission.select_one("td:nth-child(5)").get_text().strip()
+        if not submission.select_one("td:nth-child(6) > span").findChild("span"):
+            verdict = submission.select_one("td:nth-child(6) > span").get_text().strip()
+        else:
+            verdict = submission.select_one("td:nth-child(6) > span > span").get_text().strip()
+        time = submission.select_one("td:nth-child(7)").get_text().strip()
+        memory = submission.select_one("td:nth-child(8)").get_text().strip()
 
 parse_contests("hyoseok")
