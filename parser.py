@@ -1,3 +1,4 @@
+import os
 import requests
 from bs4 import BeautifulSoup
 import dateparser
@@ -27,8 +28,18 @@ class Submission:
         self.time = time
         self.memory = memory
 
+    def comment(self, contest: Contest) -> str:
+        return """/*
+    Contest Name : {}
+    Problem Title : {}
+    Problem Url : {}
+    Verdict : {}
+    Time : {}
+    Memory : {}
+*/
 
-show_unofficial_submissions = True
+""".format(contest.title, self.problem_title, self.problem_url, self.verdict, self.time, self.memory)
+
 
 def disable_show_unofficial_submissions(session: Session, url: str):
     response = session.get(url)
@@ -46,9 +57,9 @@ def disable_show_unofficial_submissions(session: Session, url: str):
     })
     
 
-def parse_contests(session: Session, handle: str):
+def parse_contests(handle: str):
     url = "https://codeforces.com/contests/with/" + handle
-    response = session.get(url)
+    response = requests.get(url)
 
     if response.status_code != 200:
         return None
@@ -69,14 +80,15 @@ def parse_contests(session: Session, handle: str):
         new_rating = contest.select_one("td:nth-child(7)").get_text().strip()
 
         _contest = Contest(title, id, start_time, rank, solved, submissions_url, rating_change, new_rating)
-        parse_submissions(session, _contest)
+        parse_submissions(_contest)
 
 
-def parse_submissions(session: Session, contest: Contest):
+def parse_submissions(contest: Contest):
+    session = requests.Session()
+
     url = contest.submissions_url
 
-    if show_unofficial_submissions:
-            disable_show_unofficial_submissions(session, url)
+    disable_show_unofficial_submissions(session, url)
     
     response = session.get(url)
 
@@ -103,11 +115,35 @@ def parse_submissions(session: Session, contest: Contest):
         memory = submission.select_one("td:nth-child(8)").get_text().strip()
 
         _submission = Submission(id, url, submit_time, problem_title, problem_url, language, verdict, time, memory)
-        parse_submission(session, contest, _submission)
+
+        parse_submission(contest, _submission)
 
 
-def parse_submission(session: Session, contest: Contest, submission: Submission):
-    pass
+def parse_submission(contest: Contest, submission: Submission):
+    url = submission.url
+    response = requests.get(url)
 
-session = requests.Session()
-parse_contests(session, "hyoseok")
+    if response.status_code != 200:
+        return None
+    
+    html = response.text
+    soup = BeautifulSoup(html, 'html.parser')
+
+    comment = submission.comment(contest)
+    code = soup.select_one("pre#program-source-text").get_text()
+
+    if not os.path.isdir(contest.title):
+        os.mkdir(contest.title)
+    
+    with open(contest.title + '/' + submission.id + '.' + lang_to_extension(submission.language), 'w') as f:
+        f.write(comment)
+        f.write(code)
+
+
+def lang_to_extension(lang: str) -> str:
+    if lang.__contains__("C++"):
+        return "cpp"
+    elif lang.__contains__("Py"):
+        return "py"
+
+parse_contests("hyoseok")
