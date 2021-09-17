@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import dateparser
 from requests.sessions import Session
+import time
 
 class Contest:
     def __init__(self, title, id, start_time, rank, solved, submissions_url, rating_change, new_rating) -> None:
@@ -111,15 +112,20 @@ def parse_submissions(contest: Contest):
             verdict = submission.select_one("td:nth-child(6) > span").get_text().strip()
         else:
             verdict = submission.select_one("td:nth-child(6) > span > span").get_text().strip()
-        time = submission.select_one("td:nth-child(7)").get_text().strip()
+        _time = submission.select_one("td:nth-child(7)").get_text().strip()
         memory = submission.select_one("td:nth-child(8)").get_text().strip()
 
-        _submission = Submission(id, url, submit_time, problem_title, problem_url, language, verdict, time, memory)
+        _submission = Submission(id, url, submit_time, problem_title, problem_url, language, verdict, _time, memory)
 
         parse_submission(contest, _submission)
 
+        time.sleep(5)
+
 
 def parse_submission(contest: Contest, submission: Submission):
+    if os.path.exists(contest.title + '/' + submission.id + '.' + lang_to_extension(submission.language)):
+        return
+    
     url = submission.url
     response = requests.get(url)
 
